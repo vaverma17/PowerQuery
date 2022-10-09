@@ -1,0 +1,25 @@
+// NETWORKDAYS.INTL - Authored by Vijay A. Verma
+(StartDate, EndDate, optional Weekend, optional Holidays)=> 
+let
+    //if a date is blank, make it equal to 30-Dec-1899
+    FromDate = if StartDate = null then #date(1899,12,30) else StartDate,
+    ToDate = if EndDate = null then #date(1899,12,30) else EndDate,
+    //StartDate should be lesser than or equal to EndDate. If it is more than EndDate, then we will multiply the final result with negative sign. Let's store this sign
+    Sign = if ToDate<FromDate then -1 else 1,
+    Start_Date = List.Min({FromDate, ToDate}),
+    End_Date = List.Max({FromDate, ToDate}),
+    //Prepare a list of dates from Start date to End date and remove Holidays from there
+    // Also set Holidays list to blank list if Holidays is null or blank
+    ListOfAllDates = List.Difference(List.Dates(Start_Date,Duration.Days(End_Date-Start_Date)+1,#duration(1,0,0,0)),if Holidays=null or Holidays="" then {} else Holidays),
+    //Adjust Weekend Parameter
+    SetWeekend = if Weekend ="" or Weekend = null then "1" else Text.From(Weekend),
+    //1 to 7 and 11 to 17 are parameters for weekends - https://support.microsoft.com/en-us/office/networkdays-intl-function-a9b26239-4f20-46a1-9ab8-4e925bfd5e28
+    WeekendParamList = {"1".."7"} & {"11","12","13","14","15","16","17"},
+    WeekendLookupList = {"0000011","1000001","1100000","0110000","0011000","0001100","0000110","0000001","1000000","0100000","0010000","0001000","0000100","0000010"},
+    WeekendString = if Text.Length(SetWeekend)=7 then SetWeekend else WeekendLookupList{List.PositionOf(WeekendParamList,SetWeekend)},
+    //Let's generate a list which has the position of weekends. Hence for 1000011 will generate, {1,6,7}.
+    WeekendList = List.RemoveMatchingItems(List.Transform(List.Positions(Text.ToList(WeekendString)), (i)=>(i+1)*Number.From(Text.ToList(WeekendString){i})),{0}),
+    //Let's remove the dates which match the weekend criteria and take the count multiplied by Sign
+    Networkdays = Sign * List.Count(List.Select(ListOfAllDates,(i)=>not List.Contains(WeekendList,Date.DayOfWeek(i,1)+1)))
+in
+    Networkdays
